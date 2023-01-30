@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from './types'
 import { db } from './database/knex'
+import { User } from './models/User'
 
 const app = express()
 
@@ -39,12 +40,22 @@ app.get("/users", async (req: Request, res: Response) => {
         if (q) {
             const result: TUserDB[] = await db("users").where("name", "LIKE", `%${q}%`)
             usersDB = result
+            // usersDB[0].name = Não queremos que isso aconteça
         } else {
             const result: TUserDB[] = await db("users")
             usersDB = result
         }
 
-        res.status(200).send(usersDB)
+        //Vamos pegar as informações vindas do userDB e instancia-las em um objeto da classe User
+        const users: User[] = usersDB.map((userDB) => new User(
+            userDB.id,
+            userDB.name,
+            userDB.email,
+            userDB.password,
+            userDB.created_at
+        ))
+
+        res.status(200).send(users)
     } catch (error) {
         console.log(error)
 
@@ -91,17 +102,37 @@ app.post("/users", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newUser: TUserDBPost = {
+        //Objeto simples usando dados crus vindos do body
+        // const newUser: TUserDBPost = {
+        //     id,
+        //     name,
+        //     email,
+        //     password
+        // }
+
+        //Instanciar os dados vindos do body
+        const newUser = new User(
             id,
             name,
             email,
-            password
+            password,
+            new Date().toISOString()
+        )
+
+        const newUserDB: TUserDB = {
+            id: newUser.getId(),
+            name: newUser.getName(),
+            email: newUser.getEmail(),
+            password: newUser.getPassword(),
+            created_at: newUser.getCreatedAt()
         }
 
-        await db("users").insert(newUser)
-        const [ userDB ]: TUserDB[] = await db("users").where({ id })
 
-        res.status(201).send(userDB)
+        await db("users").insert(newUserDB)
+
+        // const [ userDB ]: TUserDB[] = await db("users").where({ id })
+
+        res.status(201).send(newUser)
     } catch (error) {
         console.log(error)
 
@@ -246,3 +277,10 @@ app.put("/accounts/:id/balance", async (req: Request, res: Response) => {
         }
     }
 })
+
+
+const user3 = new User("004", "Mariana", "mari@gmail.com", "1234", "2023-01-30-T10:00:00")
+
+console.log(user3)
+
+console.log(user3.getId())
